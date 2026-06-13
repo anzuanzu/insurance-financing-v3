@@ -223,19 +223,12 @@
       display: flex; justify-content: space-between; align-items: center;
       padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid var(--border);
       font-size: 0.85rem; font-weight: 600;
-      gap: 10px;
     }
     .bond-slot-header .slot-num { color: var(--primary); }
-    .slot-actions {
-      display: inline-flex;
+    .bond-slot-actions {
+      display: flex;
       align-items: center;
       gap: 4px;
-      flex-shrink: 0;
-    }
-    .slot-order-actions {
-      display: inline-flex;
-      gap: 2px;
-      margin-right: 4px;
     }
     .bond-slot-body { padding: 14px 16px; }
     .bond-info-row {
@@ -340,6 +333,13 @@
     }
     .coverage-box .label { font-size: 0.72rem; color: var(--text-light); margin-bottom: 4px; }
     .coverage-box .multiplier { font-size: 1.8rem; font-weight: 700; }
+    .coverage-box .multiplier.editable-stat-value { gap: 0; }
+    .coverage-box .multiplier .result-edit-input {
+      max-width: 120px;
+      font-size: inherit;
+      line-height: 1.2;
+      padding: 2px 4px;
+    }
     .coverage-box.before .multiplier { color: var(--text-light); }
     .coverage-box.after .multiplier { color: var(--success); }
     .coverage-arrow { font-size: 1.5rem; color: var(--accent); }
@@ -357,7 +357,6 @@
       font-variant-numeric: tabular-nums;
     }
     .result-bond-table .text-right { text-align: right; }
-
     /* Bottom Nav */
     .bottom-nav {
       position: fixed; bottom: 0; left: 0; right: 0;
@@ -430,18 +429,10 @@
       transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px;
     }
     .inline-btn:hover { background: #f0f4f8; }
-    .inline-btn.icon-only {
-      width: 34px;
-      height: 34px;
-      padding: 0;
-      justify-content: center;
-    }
     .inline-btn:disabled {
-      opacity: 0.35;
+      opacity: 0.45;
       cursor: not-allowed;
-    }
-    .inline-btn:disabled:hover {
-      background: white;
+      background: #f8fafc;
     }
     .inline-btn.danger { color: var(--danger); border-color: #fecdd3; }
     .inline-btn.success { color: var(--success); border-color: #bbf7d0; }
@@ -713,6 +704,16 @@
           </div>
         </div>
       </div>
+      <div class="form-row hidden" id="premiumRatioSettingsRow">
+        <div class="form-group" id="premiumLoanRatioGroup">
+          <label class="form-label">保費融資借款比例</label>
+          <input type="number" class="form-input" id="premiumLoanRatio" inputmode="decimal" value="0.85" step="0.01" min="0" oninput="recalcFinancing()">
+        </div>
+        <div class="form-group hidden" id="crossCurrencyLoanRatioGroup">
+          <label class="form-label">錯幣借款成數</label>
+          <input type="number" class="form-input" id="crossCurrencyLoanRatio" inputmode="decimal" value="0.90" step="0.01" min="0" oninput="recalcFinancing()">
+        </div>
+      </div>
       <div class="form-row" id="policyOnlyValueRow">
         <div class="form-group" id="policyValueGroup">
           <label class="form-label" id="policyValueLabel">保價金 <span class="hint" id="policyValueCurrLabel">(USD)</span></label>
@@ -734,7 +735,7 @@
         <div class="form-group" id="ltvRatioGroup">
           <label class="form-label" id="ltvRatioLabel">保價金成數</label>
           <div class="input-group">
-            <input type="number" class="form-input" id="ltvRatio" inputmode="decimal" value="85" step="1" oninput="recalcFinancing()">
+            <input type="number" class="form-input" id="ltvRatio" inputmode="decimal" value="85" step="0.01" oninput="recalcFinancing()">
             <span class="input-suffix">%</span>
           </div>
         </div>
@@ -794,6 +795,10 @@
         <div class="calc-row">
           <span class="label">年融資成本 (TWD)</span>
           <span class="value" id="dispAnnualCost">-</span>
+        </div>
+        <div class="calc-row hidden" id="referenceCashValueRow">
+          <span class="label">保費融資參考現金價值</span>
+          <span class="value" id="dispReferenceCashValue">-</span>
         </div>
       </div>
     </div>
@@ -889,7 +894,7 @@
         <span>投資配置金額超過可融資金額</span>
       </div>
     </div>
-    <p class="section-note">債券與基金可用上下箭頭調整標的順序。配息收入與融資成本皆以台幣計算。</p>
+    <p class="section-note">可於卡片右上角調整債券與基金標的順序。配息收入與融資成本皆以台幣計算。</p>
   </section>
 
   <!-- Step 4: Results Dashboard -->
@@ -904,7 +909,13 @@
         <div class="stat-card result-policy-only hidden"><div class="stat-label">保單價值</div><div class="stat-value" id="resPolicyValue">-</div></div>
         <div class="stat-card accent"><div class="stat-label">融資金額 (TWD)</div><div class="stat-value" id="resFinancing">-</div></div>
         <div class="stat-card"><div class="stat-label">融資利率</div><div class="stat-value" id="resRate">-</div></div>
-        <div class="stat-card result-premium-only"><div class="stat-label">保障倍數年度</div><div class="stat-value" id="resCoverageYear">-</div></div>
+        <div class="stat-card result-premium-only">
+          <div class="stat-label">保障倍數年度</div>
+          <div class="stat-value editable-stat-value">
+            <input type="text" class="result-edit-input" id="resCoverageYearInput" inputmode="numeric" placeholder="-" autocomplete="off">
+            <span class="result-edit-unit">年</span>
+          </div>
+        </div>
         <div class="stat-card result-premium-only">
           <div class="stat-label">該年度預估保障</div>
           <div class="stat-value editable-stat-value">
@@ -919,6 +930,9 @@
             <span class="result-edit-unit" id="resPolicyCashValueUnit"></span>
           </div>
         </div>
+        <div class="stat-card result-premium-only"><div class="stat-label">增值金額</div><div class="stat-value" id="resGrowthAmount">-</div></div>
+        <div class="stat-card result-premium-only"><div class="stat-label">增值率</div><div class="stat-value" id="resGrowthRate">-</div></div>
+        <div class="stat-card result-premium-only"><div class="stat-label">單利</div><div class="stat-value" id="resSimpleRate">-</div></div>
       </div>
     </div>
 
@@ -994,13 +1008,17 @@
       <div class="coverage-compare">
         <div class="coverage-box before">
           <div class="label">未融資</div>
-          <div class="multiplier" id="resCovBefore">-</div>
+          <div class="multiplier editable-stat-value">
+            <input type="text" class="result-edit-input" id="resCovBeforeInput" inputmode="decimal" placeholder="-" autocomplete="off">
+          </div>
           <div class="text-sm text-muted">倍</div>
         </div>
         <div class="coverage-arrow"><i class="fas fa-arrow-right"></i></div>
         <div class="coverage-box after">
           <div class="label">融資後</div>
-          <div class="multiplier" id="resCovAfter">-</div>
+          <div class="multiplier editable-stat-value">
+            <input type="text" class="result-edit-input" id="resCovAfterInput" inputmode="decimal" placeholder="-" autocomplete="off">
+          </div>
           <div class="text-sm text-muted">倍</div>
         </div>
       </div>
@@ -1205,6 +1223,7 @@
 <script src="aba_coverage_data.js?v=20260522-3"></script>
 <script src="wus_coverage_data.js?v=20260522-3"></script>
 <script src="cash_value_data.js?v=20260522-2"></script>
+<script src="reference_cash_value_data.js?v=20260612-1"></script>
 <script>
 // === Product Data ===
 const PREMIUM_FINANCING_PRODUCTS = [
@@ -1791,6 +1810,8 @@ let state = {
   coverageYear: 20,
   financingRate: 2.38,
   usdTwdRate: 32.00,
+  premiumLoanRatio: 0.85,
+  crossCurrencyLoanRatio: 0.9,
   ltvRatio: 85,
   usdDiscount: 90,
   financingAmount: 0,
@@ -1812,7 +1833,9 @@ let state = {
     projectedBenefitAmount: null,
     projectedBenefitCurrency: '',
     policyCashValueAmount: null,
-    policyCashValueCurrency: ''
+    policyCashValueCurrency: '',
+    coverageBeforeMultiplier: null,
+    coverageAfterMultiplier: null
   }
 };
 
@@ -1822,7 +1845,9 @@ function createDefaultResultOverrides() {
     projectedBenefitAmount: null,
     projectedBenefitCurrency: '',
     policyCashValueAmount: null,
-    policyCashValueCurrency: ''
+    policyCashValueCurrency: '',
+    coverageBeforeMultiplier: null,
+    coverageAfterMultiplier: null
   };
 }
 
@@ -1839,7 +1864,9 @@ function createDefaultProductScenario() {
     coverageYear: 20,
     financingRate: 2.38,
     usdTwdRate: 32.0,
-    ltvRatio: state.financingType === 'premium' ? 50 : 85,
+    premiumLoanRatio: 0.85,
+    crossCurrencyLoanRatio: 0.9,
+    ltvRatio: state.financingType === 'premium' ? 0 : 85,
     usdDiscount: 90,
     financingAmount: 0,
     financingOriginalAmount: 0,
@@ -1876,6 +1903,8 @@ function saveCurrentProductScenarioSnapshot() {
     coverageYear: state.coverageYear,
     financingRate: state.financingRate,
     usdTwdRate: state.usdTwdRate,
+    premiumLoanRatio: state.premiumLoanRatio,
+    crossCurrencyLoanRatio: state.crossCurrencyLoanRatio,
     ltvRatio: state.ltvRatio,
     usdDiscount: state.usdDiscount,
     financingAmount: state.financingAmount,
@@ -1885,7 +1914,11 @@ function saveCurrentProductScenarioSnapshot() {
     investmentModes: { ...(state.investmentModes || { bond: 'single', fund: 'single' }) },
     bonds: Array.isArray(state.bonds) ? JSON.parse(JSON.stringify(state.bonds)) : [],
     funds: Array.isArray(state.funds) ? JSON.parse(JSON.stringify(state.funds)) : [],
-    structuredProducts: Array.isArray(state.structuredProducts) ? JSON.parse(JSON.stringify(state.structuredProducts)) : []
+    structuredProducts: Array.isArray(state.structuredProducts) ? JSON.parse(JSON.stringify(state.structuredProducts)) : [],
+    resultOverrides: {
+      ...createDefaultResultOverrides(),
+      ...(state.resultOverrides || {})
+    }
   };
 }
 
@@ -1899,7 +1932,11 @@ function restoreProductScenarioSnapshot(product) {
     investmentModes: { bond: 'single', fund: 'single', ...(snapshot.investmentModes || {}) },
     bonds: Array.isArray(snapshot.bonds) ? snapshot.bonds : [],
     funds: Array.isArray(snapshot.funds) ? snapshot.funds : [],
-    structuredProducts: Array.isArray(snapshot.structuredProducts) ? snapshot.structuredProducts : []
+    structuredProducts: Array.isArray(snapshot.structuredProducts) ? snapshot.structuredProducts : [],
+    resultOverrides: {
+      ...createDefaultResultOverrides(),
+      ...(snapshot.resultOverrides || {})
+    }
   } : createDefaultProductScenario();
 
   state.insuranceAge = next.insuranceAge;
@@ -1913,6 +1950,8 @@ function restoreProductScenarioSnapshot(product) {
   state.coverageYear = next.coverageYear;
   state.financingRate = next.financingRate;
   state.usdTwdRate = next.usdTwdRate;
+  state.premiumLoanRatio = next.premiumLoanRatio ?? 0.85;
+  state.crossCurrencyLoanRatio = next.crossCurrencyLoanRatio ?? 0.9;
   state.ltvRatio = next.ltvRatio;
   state.usdDiscount = next.usdDiscount;
   state.financingAmount = next.financingAmount;
@@ -1923,6 +1962,10 @@ function restoreProductScenarioSnapshot(product) {
   state.bonds = JSON.parse(JSON.stringify(next.bonds));
   state.funds = JSON.parse(JSON.stringify(next.funds));
   state.structuredProducts = JSON.parse(JSON.stringify(next.structuredProducts));
+  state.resultOverrides = {
+    ...createDefaultResultOverrides(),
+    ...(next.resultOverrides || {})
+  };
 }
 
 // === Formatting ===
@@ -1995,7 +2038,86 @@ function setEditableResultField(inputId, unitId, amount, currency, disabled = fa
   unit.textContent = disabled ? '' : (currency || '');
 }
 
-function applyCoverageComparison(projectedBenefitAmount, projectedBenefitCurrency) {
+function formatEditableMultiplier(value) {
+  return value === null || value === undefined || value === '' || Number.isNaN(Number(value))
+    ? ''
+    : fmtDec(value, 1);
+}
+
+function formatRatePercent(value, digits = 2) {
+  return Number.isFinite(value) ? `${fmtDec(value * 100, digits)}%` : '-';
+}
+
+function getFinancingAmountInPolicyCurrency(currency) {
+  if (!Number.isFinite(state.financingAmount)) return 0;
+  if (currency === 'USD') {
+    const usdRate = Number(state.usdTwdRate) || 0;
+    return usdRate > 0 ? (state.financingAmount / usdRate) : 0;
+  }
+  return Number(state.financingAmount) || 0;
+}
+
+function computePremiumGrowthMetrics(policyCashValueAmount, currency, coverageYear = state.coverageYear) {
+  const numericPolicyCashValue = Number(policyCashValueAmount);
+  const numericCoverageYear = Number(coverageYear);
+  if (!Number.isFinite(numericPolicyCashValue) || !currency || !Number.isFinite(numericCoverageYear) || numericCoverageYear <= 0) {
+    return null;
+  }
+  const selfFundAmount = Number(state.selfFundAmount) || 0;
+  const financingAmountInPolicyCurrency = getFinancingAmountInPolicyCurrency(currency);
+  const financingRate = (Number(state.financingRate) || 0) / 100;
+  const financingInterest = numericCoverageYear * financingAmountInPolicyCurrency * financingRate;
+  const growthAmount = numericPolicyCashValue - selfFundAmount - financingInterest - financingAmountInPolicyCurrency;
+  const growthRate = selfFundAmount > 0 ? (growthAmount / selfFundAmount) : null;
+  const simpleRate = Number.isFinite(growthRate) && numericCoverageYear > 0 ? (growthRate / numericCoverageYear) : null;
+  return {
+    amount: growthAmount,
+    rate: growthRate,
+    simpleRate,
+    currency
+  };
+}
+
+function renderPremiumGrowthMetrics(policyCashValueAmount, currency, disabled = false) {
+  const amountEl = document.getElementById('resGrowthAmount');
+  const rateEl = document.getElementById('resGrowthRate');
+  const simpleEl = document.getElementById('resSimpleRate');
+  if (!amountEl || !rateEl || !simpleEl) return;
+  if (disabled) {
+    amountEl.textContent = '-';
+    rateEl.textContent = '-';
+    simpleEl.textContent = '-';
+    return;
+  }
+  const metrics = computePremiumGrowthMetrics(policyCashValueAmount, currency);
+  if (!metrics) {
+    amountEl.textContent = '-';
+    rateEl.textContent = '-';
+    simpleEl.textContent = '-';
+    return;
+  }
+  amountEl.textContent = `${fmt(metrics.amount)} ${metrics.currency}`;
+  rateEl.textContent = formatRatePercent(metrics.rate);
+  simpleEl.textContent = formatRatePercent(metrics.simpleRate);
+}
+
+function setEditableMultiplierField(inputId, value, disabled = false) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.disabled = disabled;
+  input.value = disabled ? '' : formatEditableMultiplier(value);
+  input.placeholder = disabled ? '-' : '';
+}
+
+function setEditableCoverageYearField(value, disabled = false) {
+  const input = document.getElementById('resCoverageYearInput');
+  if (!input) return;
+  input.disabled = disabled;
+  input.value = disabled ? '' : String(Math.max(1, Math.min(100, parseInt(value, 10) || 20)));
+  input.placeholder = disabled ? '-' : '';
+}
+
+function computeCoverageComparison(projectedBenefitAmount, projectedBenefitCurrency) {
   const premiumTwd = state.selectedProduct && state.selectedProduct.currency === 'USD'
     ? state.premium * state.usdTwdRate
     : state.premium;
@@ -2013,8 +2135,25 @@ function applyCoverageComparison(projectedBenefitAmount, projectedBenefitCurrenc
   }
   const covAfter = ownCapital > 0 ? (projectedBenefitTwd / ownCapital) : 0;
 
-  document.getElementById('resCovBefore').textContent = fmtDec(covBefore, 1);
-  document.getElementById('resCovAfter').textContent = fmtDec(covAfter, 1);
+  return { covBefore, covAfter };
+}
+
+function applyCoverageComparison(projectedBenefitAmount, projectedBenefitCurrency, disabled = false) {
+  if (disabled) {
+    setEditableMultiplierField('resCovBeforeInput', null, true);
+    setEditableMultiplierField('resCovAfterInput', null, true);
+    return;
+  }
+  const autoCoverage = computeCoverageComparison(projectedBenefitAmount, projectedBenefitCurrency);
+  const resultOverrides = ensureResultOverrides();
+  const displayCovBefore = Number.isFinite(resultOverrides.coverageBeforeMultiplier)
+    ? resultOverrides.coverageBeforeMultiplier
+    : autoCoverage.covBefore;
+  const displayCovAfter = Number.isFinite(resultOverrides.coverageAfterMultiplier)
+    ? resultOverrides.coverageAfterMultiplier
+    : autoCoverage.covAfter;
+  setEditableMultiplierField('resCovBeforeInput', displayCovBefore, false);
+  setEditableMultiplierField('resCovAfterInput', displayCovAfter, false);
 }
 
 function handleEditableResultFocus(event) {
@@ -2027,6 +2166,49 @@ function handleEditableResultFocus(event) {
 function handleEditableResultBlur(event) {
   const numeric = parseEditableResultNumber(event.target.value);
   event.target.value = numeric === null ? '' : formatEditableResultNumber(numeric);
+}
+
+function handleEditableMultiplierFocus(event) {
+  const numeric = parseEditableResultNumber(event.target.value);
+  if (numeric !== null) {
+    event.target.value = String(numeric);
+  }
+}
+
+function handleEditableMultiplierBlur(event) {
+  const numeric = parseEditableResultNumber(event.target.value);
+  if (numeric === null) {
+    const displayedProjectedBenefit = getDisplayedProjectedBenefitForCoverage();
+    applyCoverageComparison(displayedProjectedBenefit.amount, displayedProjectedBenefit.currency);
+    return;
+  }
+  event.target.value = formatEditableMultiplier(numeric);
+}
+
+function commitCoverageYearFromResultInput() {
+  const input = document.getElementById('resCoverageYearInput');
+  if (!input) return;
+  const numeric = parseEditableResultNumber(input.value);
+  const nextCoverageYear = Math.max(1, Math.min(100, parseInt(numeric, 10) || state.coverageYear || 20));
+  state.coverageYear = nextCoverageYear;
+  const sourceInput = document.getElementById('coverageYear');
+  if (sourceInput) sourceInput.value = nextCoverageYear;
+  input.value = String(nextCoverageYear);
+  renderResults();
+  saveState();
+}
+
+function handleCoverageYearResultFocus(event) {
+  const currentValue = parseInt(event.target.value, 10);
+  event.target.value = String(Number.isFinite(currentValue) && currentValue > 0 ? currentValue : (state.coverageYear || 20));
+}
+
+function handleCoverageYearResultBlur() {
+  commitCoverageYearFromResultInput();
+}
+
+function handleCoverageYearResultChange() {
+  commitCoverageYearFromResultInput();
 }
 
 function handleProjectedBenefitEdit(event) {
@@ -2058,6 +2240,44 @@ function handlePolicyCashValueEdit(event) {
   ensureResultOverrides();
   state.resultOverrides.policyCashValueAmount = numeric;
   state.resultOverrides.policyCashValueCurrency = document.getElementById('resPolicyCashValueUnit').textContent.trim() || '';
+  if (numeric === null) {
+    const productCode = getEffectiveProductCode(state.selectedProduct);
+    const latestFaceAmount = state.selectedProduct
+      ? normalizeProductFaceAmount(productCode, document.getElementById('sumInsured').value || state.sumInsured)
+      : state.sumInsured;
+    const projectedCashValue = state.selectedProduct
+      ? getProjectedPolicyCashValue(productCode, state.premium, state.coverageYear, state.insuranceAge, latestFaceAmount, state.insuredGender)
+      : null;
+    renderPremiumGrowthMetrics(projectedCashValue ? projectedCashValue.amount : null, projectedCashValue ? projectedCashValue.currency : '', !projectedCashValue);
+  } else {
+    renderPremiumGrowthMetrics(numeric, state.resultOverrides.policyCashValueCurrency, false);
+  }
+  saveState();
+}
+
+function getDisplayedProjectedBenefitForCoverage() {
+  const productCode = getEffectiveProductCode(state.selectedProduct);
+  const latestFaceAmount = state.selectedProduct
+    ? normalizeProductFaceAmount(productCode, document.getElementById('sumInsured').value || state.sumInsured)
+    : state.sumInsured;
+  const projectedBenefit = state.selectedProduct
+    ? getProjectedDeathBenefit(productCode, state.premium, state.coverageYear, state.insuranceAge, latestFaceAmount, state.insuredGender)
+    : null;
+  const resultOverrides = ensureResultOverrides();
+  return {
+    amount: Number.isFinite(resultOverrides.projectedBenefitAmount)
+      ? resultOverrides.projectedBenefitAmount
+      : (projectedBenefit ? projectedBenefit.amount : state.sumInsured),
+    currency: resultOverrides.projectedBenefitCurrency
+      || (projectedBenefit ? projectedBenefit.currency : ((state.selectedProduct && state.selectedProduct.currency) || 'TWD'))
+  };
+}
+
+function handleCoverageMultiplierEdit(event) {
+  const numeric = parseEditableResultNumber(event.target.value);
+  const field = event.target.id === 'resCovBeforeInput' ? 'coverageBeforeMultiplier' : 'coverageAfterMultiplier';
+  ensureResultOverrides();
+  state.resultOverrides[field] = numeric;
   saveState();
 }
 
@@ -2261,6 +2481,8 @@ function applyStateToForm() {
   document.getElementById('audTwdRate').value = state.exchangeRates.AUD ?? DEFAULT_EXCHANGE_RATES.AUD;
   document.getElementById('eurTwdRate').value = state.exchangeRates.EUR ?? DEFAULT_EXCHANGE_RATES.EUR;
   document.getElementById('gbpTwdRate').value = state.exchangeRates.GBP ?? DEFAULT_EXCHANGE_RATES.GBP;
+  document.getElementById('premiumLoanRatio').value = state.premiumLoanRatio ?? 0.85;
+  document.getElementById('crossCurrencyLoanRatio').value = state.crossCurrencyLoanRatio ?? 0.9;
   document.getElementById('ltvRatio').value = state.ltvRatio ?? 85;
   document.getElementById('usdDiscount').value = state.usdDiscount ?? 90;
 
@@ -2352,8 +2574,8 @@ function selectType(type, options = {}) {
   }
   state.financingType = type;
   state.ltvRatio = preserveInputs
-    ? (state.ltvRatio ?? (type === 'premium' ? 50 : 85))
-    : (type === 'premium' ? 50 : 85);
+    ? (state.ltvRatio ?? (type === 'premium' ? 0 : 85))
+    : (type === 'premium' ? 0 : 85);
   document.getElementById('ltvRatio').value = state.ltvRatio;
   document.getElementById('typeCardPremium').classList.toggle('selected', type === 'premium');
   document.getElementById('typeCardPolicy').classList.toggle('selected', type === 'policy');
@@ -2406,12 +2628,16 @@ function updateFinancingUI() {
     document.getElementById('policyOnlyValueRow').classList.remove('hidden');
     document.getElementById('policyValueGroup').classList.remove('hidden');
     document.getElementById('usdDiscountGroup').classList.remove('hidden');
+    document.getElementById('premiumRatioSettingsRow').classList.add('hidden');
+    document.getElementById('crossCurrencyLoanRatioGroup').classList.add('hidden');
     document.getElementById('multiCurrencyRateGrid').classList.add('hidden');
     document.getElementById('ltvRatioLabel').textContent = '保價金成數';
+    document.getElementById('ltvRatio').readOnly = false;
     document.getElementById('dispBaseLabel').textContent = '保價金';
     document.getElementById('dispRatioLabel').textContent = '× 保價金成數';
     document.getElementById('dispSelfFundRow').classList.add('hidden');
     document.getElementById('dispLoanOriginalRow').classList.add('hidden');
+    document.getElementById('referenceCashValueRow').classList.add('hidden');
     return;
   }
   const isPremium = state.financingType === 'premium';
@@ -2425,13 +2651,17 @@ function updateFinancingUI() {
   document.getElementById('policyOnlyValueRow').classList.toggle('hidden', isPremium);
   document.getElementById('policyValueGroup').classList.toggle('hidden', isPremium);
   document.getElementById('usdDiscountGroup').classList.toggle('hidden', isPremium);
+  document.getElementById('premiumRatioSettingsRow').classList.toggle('hidden', !isPremium);
+  document.getElementById('crossCurrencyLoanRatioGroup').classList.toggle('hidden', !(isPremium && state.selectedProduct && state.selectedProduct.currency === 'USD'));
   document.getElementById('multiCurrencyRateGrid').classList.add('hidden');
-  document.getElementById('ltvRatioLabel').textContent = isPremium ? '融資成數' : '保價金成數';
+  document.getElementById('ltvRatioLabel').textContent = isPremium ? '融資成數（自動）' : '保價金成數';
+  document.getElementById('ltvRatio').readOnly = isPremium;
   document.getElementById('dispBaseLabel').textContent = isPremium ? '保費' : '保價金';
   document.getElementById('dispRatioLabel').textContent = isPremium ? '× 融資成數' : '× 保價金成數';
   document.getElementById('dispDiscountRow').classList.toggle('hidden', isPremium || !(state.selectedProduct && state.selectedProduct.currency === 'USD'));
   document.getElementById('dispSelfFundRow').classList.toggle('hidden', !isPremium);
   document.getElementById('dispLoanOriginalRow').classList.toggle('hidden', !isPremium);
+  document.getElementById('referenceCashValueRow').classList.toggle('hidden', !isPremium);
 }
 
 // === Step 2: Product Search ===
@@ -3086,6 +3316,126 @@ function getProjectedPolicyCashValue(productCode, premiumAmount, year, insurance
   };
 }
 
+const REFERENCE_CASH_VALUE_BASE_OVERRIDES = {
+  // WJA recommendation uses the adjusted first-day surrender value from 大表 (2)!B39,
+  // not the raw base value from 利益分析表_基本!E120.
+  WJA: {
+    male: [
+      23331.176470588234, 24052.52619324796, 24832.34762979684, 25612.647702406997, 26423.923647932133, 27265.65708418891,
+      28165.373134328358, 29065.573770491803, 29968.73949579832, 30958.37104072398, 31948.5, 32970.076465590486,
+      34020.14827018122, 35073.1843575419, 36183.20433436533, 37323.1981981982, 38464.67589220684, 39666.101694915254,
+      40896.02467443454, 42157.40026595745, 43448.74838709678, 44770.55068836045, 46181.79611650485, 47593.52560329606,
+      49063.72358652199, 50594.87534626039, 52156.47501343364, 53778.025013027625, 55429.550050556114, 57141.02501226091,
+      58910.97572584483, 60685.346260387814, 62517.204301075275, 64438.5, 66418.27775432671, 68400.0, 70441.67130919218,
+      72572.80525502318, 74705.87617260788, 76925.92781625957, 79148.92667375132, 81431.8760757315, 83803.2786885246,
+      86205.12195121951, 88666.45161290321, 91188.19188191881, 93769.428656895, 96381.09429569264, 99052.71028037382,
+      101843.79167814826, 104545.38523489932, 107312.82989286649, 110196.21979140166, 113197.57245479316, 116230.37876960193,
+      119322.11985898943, 122503.33409663384, 125746.42873076064, 129076.5, 132439.5, 135771.04588673005, 139166.97641604513,
+      142739.8113207547, 146343.07073030475, 150032.86195286195, 153754.54545454547, 157536.17961511048, 161407.3225469729,
+      165308.86850152904, 169180.43499916987, 172929.1257718557, 176476.4348241286, 180108.17217716778, 183829.43603851445,
+      187759.47911989223, 191541.10344827586, 195469.66052934405, 199279.40155257587, 203686.53771760158, 207913.42768147346,
+      212650.36168521462, 217205.9182349124, 222031.62347560973, 227245.35652173913, 233271.01343988377, 243073.52407536638
+    ],
+    female: [
+      19008.0265095729, 19608.0, 20237.950138504155, 20897.879194630874, 21559.271781534455, 22221.158690176322, 22971.0,
+      23720.851063829792, 24442.680412371137, 25253.946784922395, 26064.232008592913, 26905.47346514048, 27775.70564516129,
+      28676.894531249996, 29607.076631977292, 30566.752293577978, 31528.373333333337, 32519.97416020672, 33570.05008347245,
+      34621.601941747576, 35733.10344827586, 36873.10030395137, 38044.55081001473, 39274.475374732334, 40507.344398340254,
+      41797.70107238606, 43119.0253411306, 44500.295969773295, 45910.54945054944, 47381.75147928994, 48854.89678899082,
+      50386.52584769316, 51976.62533692722, 53599.6551724138, 55281.15501519757, 57022.60314341847, 58822.52501191043,
+      60655.37182448037, 62545.69892473119, 64498.449174630754, 66480.17699115044, 68551.34914145544, 70652.9750099167,
+      72816.02539438246, 75037.5504107543, 77349.0, 79690.42560675343, 82121.77876408331, 84585.04970178926, 87166.27854615632,
+      89719.47516401124, 92392.57506824385, 95155.60070671378, 98007.07463540178, 100919.97500694252, 103892.8243862962,
+      106926.1006289308, 110077.32620320856, 113290.45027214251, 116563.52488578987, 119893.59681945742, 123259.54979536153,
+      126772.42538138403, 130373.75483870969, 133947.0489744663, 137639.77999592584, 141391.45180483937, 145204.5480880649,
+      149136.07109272145, 153099.0472700623, 157060.54662379422, 160935.0705943873, 164987.97653460296, 169069.38423236515,
+      173181.20563928052, 177413.9772187945, 181764.13345690456, 186203.804495399, 190585.41420990566, 194787.14842059716,
+      199883.81769587848, 204592.61754193017, 209450.9431680774, 214727.89142407553, 220424.9309815951, 226928.87176938372
+    ]
+  }
+};
+
+function getAgeGenderModeledReferenceCashValue(productCode, insuranceAge, insuredGender) {
+  const referenceData = window.POLICY_REFERENCE_CASH_VALUE_BY_PRODUCT && window.POLICY_REFERENCE_CASH_VALUE_BY_PRODUCT[productCode];
+  if (!referenceData) return null;
+  const genderKey = insuredGender === 'female' ? 'female' : 'male';
+  const overrideTable = REFERENCE_CASH_VALUE_BASE_OVERRIDES[productCode] && REFERENCE_CASH_VALUE_BASE_OVERRIDES[productCode][genderKey];
+  const genderTable = referenceData[genderKey] || {};
+  const sourceTable = Array.isArray(overrideTable) && overrideTable.length ? overrideTable : genderTable;
+  const ages = Array.isArray(sourceTable)
+    ? sourceTable.map((_, index) => index)
+    : Object.keys(sourceTable).map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+  if (!ages.length) return null;
+  const rawAge = parseInt(insuranceAge, 10);
+  const boundedAge = Math.max(ages[0], Math.min(ages[ages.length - 1], Number.isFinite(rawAge) ? rawAge : ages[0]));
+  const numericAmount = Array.isArray(sourceTable)
+    ? Number(sourceTable[boundedAge])
+    : Number(sourceTable[String(boundedAge)]);
+  if (!Number.isFinite(numericAmount)) return null;
+  return {
+    age: boundedAge,
+    amount: numericAmount,
+    baseFaceAmount: referenceData.baseFaceAmount || null,
+    currency: referenceData.currency || (PRODUCT_COVERAGE_MODELS[productCode] && PRODUCT_COVERAGE_MODELS[productCode].currency) || state.currency,
+    scheduledRate: Number(referenceData.scheduledRate) || 0,
+    mode: referenceData.mode || ''
+  };
+}
+
+function getProjectedReferenceCashValue(productCode, premiumAmount, insuranceAge, sumInsuredAmount, insuredGender = 'male') {
+  const modeled = getAgeGenderModeledReferenceCashValue(productCode, insuranceAge, insuredGender);
+  if (!modeled || !modeled.baseFaceAmount) return null;
+  const explicitFaceAmount = normalizeProductFaceAmount(productCode, sumInsuredAmount);
+  let faceAmountUsed = explicitFaceAmount;
+  let scale = 0;
+  let faceAmountSource = 'input';
+  if (explicitFaceAmount > 0) {
+    scale = explicitFaceAmount / modeled.baseFaceAmount;
+  } else {
+    const estimate = estimateSumInsuredFromPaidPremium(productCode, premiumAmount, insuranceAge, insuredGender);
+    if (estimate && estimate.faceAmount > 0) {
+      faceAmountUsed = estimate.faceAmount;
+      scale = estimate.faceAmount / modeled.baseFaceAmount;
+      faceAmountSource = 'estimated';
+    }
+  }
+  if (!scale || scale <= 0) return null;
+  return {
+    currency: modeled.currency,
+    amount: modeled.amount * scale,
+    baseAmount: modeled.amount,
+    baseFaceAmount: modeled.baseFaceAmount,
+    faceAmountUsed,
+    faceAmountSource,
+    scale,
+    age: modeled.age,
+    scheduledRate: modeled.scheduledRate,
+    mode: modeled.mode
+  };
+}
+
+function sanitizeFinancingFactor(value, fallback) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : fallback;
+}
+
+function getAutoPremiumFinancingMetrics(referenceCashValueAmount, premiumAmount, currency, premiumLoanRatio, crossCurrencyLoanRatio) {
+  const safeReferenceCashValue = Number(referenceCashValueAmount) || 0;
+  const safePremiumAmount = Number(premiumAmount) || 0;
+  const safePremiumLoanRatio = sanitizeFinancingFactor(premiumLoanRatio, 0.85);
+  const safeCrossCurrencyLoanRatio = sanitizeFinancingFactor(crossCurrencyLoanRatio, 0.9);
+  const currencyFactor = currency === 'USD' ? safeCrossCurrencyLoanRatio : 1;
+  const financingOriginalAmount = safeReferenceCashValue * safePremiumLoanRatio * currencyFactor;
+  const ltvRatio = safePremiumAmount > 0 ? (financingOriginalAmount / safePremiumAmount) * 100 : 0;
+  return {
+    financingOriginalAmount,
+    ltvRatio,
+    currencyFactor,
+    premiumLoanRatio: safePremiumLoanRatio,
+    crossCurrencyLoanRatio: safeCrossCurrencyLoanRatio
+  };
+}
+
 function recalcFinancing(source = '') {
   if (source === 'premium' || source === 'sumInsured' || source === 'sumInsuredFinal') {
     state.amountInputMode = source;
@@ -3109,8 +3459,10 @@ function recalcFinancing(source = '') {
   const audRate = parseFloat(document.getElementById('audTwdRate').value) || DEFAULT_EXCHANGE_RATES.AUD;
   const eurRate = parseFloat(document.getElementById('eurTwdRate').value) || DEFAULT_EXCHANGE_RATES.EUR;
   const gbpRate = parseFloat(document.getElementById('gbpTwdRate').value) || DEFAULT_EXCHANGE_RATES.GBP;
-  const ltv = parseFloat(document.getElementById('ltvRatio').value) || 85;
+  const inputLtv = parseFloat(document.getElementById('ltvRatio').value) || 85;
   const discount = parseFloat(document.getElementById('usdDiscount').value) || 90;
+  const premiumLoanRatio = sanitizeFinancingFactor(document.getElementById('premiumLoanRatio').value, 0.85);
+  const crossCurrencyLoanRatio = sanitizeFinancingFactor(document.getElementById('crossCurrencyLoanRatio').value, 0.9);
 
   state.policyValue = pv;
   state.insuranceAge = Math.max(0, Math.min(110, insuranceAge));
@@ -3130,7 +3482,8 @@ function recalcFinancing(source = '') {
     EUR: eurRate,
     GBP: gbpRate
   };
-  state.ltvRatio = ltv;
+  state.premiumLoanRatio = premiumLoanRatio;
+  state.crossCurrencyLoanRatio = crossCurrencyLoanRatio;
   state.usdDiscount = discount;
 
   const productCode = getEffectiveProductCode();
@@ -3173,35 +3526,55 @@ function recalcFinancing(source = '') {
   const isUsd = state.selectedProduct && state.selectedProduct.currency === 'USD';
   const originalCurrency = state.selectedProduct ? state.selectedProduct.currency : (isUsd ? 'USD' : 'TWD');
   const isPremium = state.financingType === 'premium';
+  const projectedReferenceCashValue = isPremium && productCode
+    ? getProjectedReferenceCashValue(productCode, state.premium, state.insuranceAge, state.sumInsured, state.insuredGender)
+    : null;
   let finAmount = 0;
   let financingOriginalAmount = 0;
   let selfFundAmount = 0;
   const effectivePremium = state.premium;
+  let ltv = inputLtv;
   if (isPremium) {
-    financingOriginalAmount = effectivePremium * (ltv / 100);
+    const premiumFinancingMetrics = getAutoPremiumFinancingMetrics(
+      projectedReferenceCashValue ? projectedReferenceCashValue.amount : 0,
+      effectivePremium,
+      originalCurrency,
+      premiumLoanRatio,
+      crossCurrencyLoanRatio
+    );
+    financingOriginalAmount = premiumFinancingMetrics.financingOriginalAmount;
+    ltv = premiumFinancingMetrics.ltvRatio;
     selfFundAmount = Math.max(effectivePremium - financingOriginalAmount, 0);
     finAmount = isUsd ? financingOriginalAmount * usdRate : financingOriginalAmount;
   } else {
     financingOriginalAmount = isUsd
-      ? pv * (ltv / 100) * (discount / 100)
-      : pv * (ltv / 100);
+      ? pv * (inputLtv / 100) * (discount / 100)
+      : pv * (inputLtv / 100);
     selfFundAmount = Math.max(pv - financingOriginalAmount, 0);
     finAmount = isUsd ? financingOriginalAmount * usdRate : financingOriginalAmount;
   }
+  state.ltvRatio = ltv;
   state.financingAmount = finAmount;
   state.financingOriginalAmount = financingOriginalAmount;
   state.selfFundAmount = selfFundAmount;
 
   const annualCost = finAmount * (rate / 100);
+  const ltvInput = document.getElementById('ltvRatio');
+  if (ltvInput && isPremium) {
+    ltvInput.value = ltv > 0 ? ltv.toFixed(2) : '0.00';
+  }
 
   document.getElementById('dispPolicyValue').textContent = fmt(isPremium ? effectivePremium : pv) + ' ' + originalCurrency;
   document.getElementById('dispExchangeRate').textContent = fmtDec(usdRate, 2);
-  document.getElementById('dispLtv').textContent = ltv + '%';
+  document.getElementById('dispLtv').textContent = `${fmtDec(ltv, isPremium ? 2 : 0)}%`;
   document.getElementById('dispDiscount').textContent = discount + '%';
   document.getElementById('dispSelfFundAmount').textContent = fmt(selfFundAmount) + ' ' + originalCurrency;
   document.getElementById('dispLoanOriginalAmount').textContent = fmt(financingOriginalAmount) + ' ' + originalCurrency;
   document.getElementById('dispFinancingAmount').textContent = fmt(finAmount) + ' 元';
   document.getElementById('dispAnnualCost').textContent = fmt(annualCost) + ' 元';
+  document.getElementById('dispReferenceCashValue').textContent = projectedReferenceCashValue
+    ? `${fmt(Math.round(projectedReferenceCashValue.amount))} ${projectedReferenceCashValue.currency}`
+    : '-';
   if (state.bonds.length > 0) {
     state.bonds = state.bonds.map(calculateBondAmounts);
     renderBondSlots();
@@ -3440,31 +3813,6 @@ function recalcPledgedChain() {
   }
 }
 
-function moveInvestmentItem(category, index, direction) {
-  const list = category === 'bond' ? state.bonds : state.funds;
-  const nextIndex = index + direction;
-  if (!Array.isArray(list) || nextIndex < 0 || nextIndex >= list.length) return;
-
-  [list[index], list[nextIndex]] = [list[nextIndex], list[index]];
-  if (category === 'bond') {
-    recalcPledgedChain();
-    renderBondSlots();
-  } else {
-    recalcPledgedFundChain();
-    renderFundSlots();
-  }
-  updateBondSummary();
-  saveState();
-}
-
-function moveBond(index, direction) {
-  moveInvestmentItem('bond', index, direction);
-}
-
-function moveFund(index, direction) {
-  moveInvestmentItem('fund', index, direction);
-}
-
 function saveBond() {
   const code = document.getElementById('bondCode').value.trim();
   const name = document.getElementById('bondName').value.trim();
@@ -3599,6 +3947,7 @@ function editFund(index) {
 
 function deleteBond(index) {
   state.bonds.splice(index, 1);
+  recalcPledgedChain();
   renderBondSlots();
   updateBondSummary();
   saveState();
@@ -3606,6 +3955,27 @@ function deleteBond(index) {
 
 function deleteFund(index) {
   state.funds.splice(index, 1);
+  recalcPledgedFundChain();
+  renderFundSlots();
+  updateBondSummary();
+  saveState();
+}
+
+function moveBond(index, direction) {
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= state.bonds.length) return;
+  [state.bonds[index], state.bonds[targetIndex]] = [state.bonds[targetIndex], state.bonds[index]];
+  recalcPledgedChain();
+  renderBondSlots();
+  updateBondSummary();
+  saveState();
+}
+
+function moveFund(index, direction) {
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= state.funds.length) return;
+  [state.funds[index], state.funds[targetIndex]] = [state.funds[targetIndex], state.funds[index]];
+  recalcPledgedFundChain();
   renderFundSlots();
   updateBondSummary();
   saveState();
@@ -3654,13 +4024,11 @@ function renderBondSlots() {
     <div class="bond-slot">
       <div class="bond-slot-header">
         <span class="slot-num">第 ${i + 1} 檔</span>
-        <span class="slot-actions">
-          <span class="slot-order-actions">
-            <button class="inline-btn icon-only" type="button" onclick="moveBond(${i}, -1)" ${i === 0 ? 'disabled' : ''} title="上移債券" aria-label="上移債券"><i class="fas fa-arrow-up"></i></button>
-            <button class="inline-btn icon-only" type="button" onclick="moveBond(${i}, 1)" ${i === state.bonds.length - 1 ? 'disabled' : ''} title="下移債券" aria-label="下移債券"><i class="fas fa-arrow-down"></i></button>
-          </span>
-          <button class="inline-btn icon-only" type="button" onclick="editBond(${i})" title="編輯債券" aria-label="編輯債券"><i class="fas fa-edit"></i></button>
-          <button class="inline-btn icon-only danger" type="button" onclick="deleteBond(${i})" title="刪除債券" aria-label="刪除債券"><i class="fas fa-trash"></i></button>
+        <span class="bond-slot-actions">
+          <button class="inline-btn" onclick="moveBond(${i}, -1)" ${i === 0 ? 'disabled' : ''} title="上移"><i class="fas fa-arrow-up"></i></button>
+          <button class="inline-btn" onclick="moveBond(${i}, 1)" ${i === state.bonds.length - 1 ? 'disabled' : ''} title="下移"><i class="fas fa-arrow-down"></i></button>
+          <button class="inline-btn" onclick="editBond(${i})" title="編輯"><i class="fas fa-edit"></i></button>
+          <button class="inline-btn danger" onclick="deleteBond(${i})"><i class="fas fa-trash"></i></button>
         </span>
       </div>
       <div class="bond-slot-body">
@@ -3718,13 +4086,11 @@ function renderFundSlots() {
     <div class="bond-slot">
       <div class="bond-slot-header">
         <span class="slot-num">第 ${i + 1} 檔基金</span>
-        <span class="slot-actions">
-          <span class="slot-order-actions">
-            <button class="inline-btn icon-only" type="button" onclick="moveFund(${i}, -1)" ${i === 0 ? 'disabled' : ''} title="上移基金" aria-label="上移基金"><i class="fas fa-arrow-up"></i></button>
-            <button class="inline-btn icon-only" type="button" onclick="moveFund(${i}, 1)" ${i === state.funds.length - 1 ? 'disabled' : ''} title="下移基金" aria-label="下移基金"><i class="fas fa-arrow-down"></i></button>
-          </span>
-          <button class="inline-btn icon-only" type="button" onclick="editFund(${i})" title="編輯基金" aria-label="編輯基金"><i class="fas fa-edit"></i></button>
-          <button class="inline-btn icon-only danger" type="button" onclick="deleteFund(${i})" title="刪除基金" aria-label="刪除基金"><i class="fas fa-trash"></i></button>
+        <span class="bond-slot-actions">
+          <button class="inline-btn" onclick="moveFund(${i}, -1)" ${i === 0 ? 'disabled' : ''} title="上移"><i class="fas fa-arrow-up"></i></button>
+          <button class="inline-btn" onclick="moveFund(${i}, 1)" ${i === state.funds.length - 1 ? 'disabled' : ''} title="下移"><i class="fas fa-arrow-down"></i></button>
+          <button class="inline-btn" onclick="editFund(${i})" title="編輯"><i class="fas fa-edit"></i></button>
+          <button class="inline-btn danger" onclick="deleteFund(${i})"><i class="fas fa-trash"></i></button>
         </span>
       </div>
       <div class="bond-slot-body">
@@ -3957,12 +4323,17 @@ function resetScenario() {
     productScenarioCache: {},
     insuranceAge: 19,
     insuredGender: 'male',
+    xindeliPayPeriod: '2',
+    xumanxinPayPeriod: '2',
     sumInsured: 0,
     premium: 0,
     policyValue: 0,
+    amountInputMode: 'premium',
     coverageYear: 20,
     financingRate: 2.38,
     usdTwdRate: DEFAULT_EXCHANGE_RATES.USD,
+    premiumLoanRatio: 0.85,
+    crossCurrencyLoanRatio: 0.9,
     ltvRatio: 85,
     usdDiscount: 90,
     financingAmount: 0,
@@ -3979,6 +4350,7 @@ function resetScenario() {
     editingBondIndex: -1,
     editingFundIndex: -1,
     editingStructuredIndex: -1,
+    resultOverrides: createDefaultResultOverrides()
   };
   clearSavedState();
   document.getElementById('productSearch').value = '';
@@ -4017,7 +4389,7 @@ function renderResults() {
   document.getElementById('resPolicyValue').textContent = fmt(state.policyValue) + currSuffix;
   document.getElementById('resFinancing').textContent = fmt(state.financingAmount);
   document.getElementById('resRate').textContent = fmtDec(state.financingRate) + '%';
-  document.getElementById('resCoverageYear').textContent = (state.coverageYear || 20) + ' 年';
+  setEditableCoverageYearField(state.coverageYear || 20, !isPremiumResult);
 
   const tbody = document.getElementById('resultBondBody');
   tbody.innerHTML = state.bonds.length > 0
@@ -4078,8 +4450,8 @@ function renderResults() {
   if (!isPremiumResult) {
     setEditableResultField('resProjectedBenefitInput', 'resProjectedBenefitUnit', null, '', true);
     setEditableResultField('resPolicyCashValueInput', 'resPolicyCashValueUnit', null, '', true);
-    document.getElementById('resCovBefore').textContent = '-';
-    document.getElementById('resCovAfter').textContent = '-';
+    applyCoverageComparison(null, '', true);
+    renderPremiumGrowthMetrics(null, '', true);
     saveState();
     return;
   }
@@ -4126,6 +4498,11 @@ function renderResults() {
   );
 
   applyCoverageComparison(displayProjectedBenefitAmount, displayProjectedBenefitCurrency);
+  renderPremiumGrowthMetrics(
+    displayProjectedCashValueAmount,
+    displayProjectedCashValueCurrency,
+    !displayProjectedCashValueCurrency
+  );
   saveState();
 }
 
@@ -4162,6 +4539,17 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   resProjectedBenefitInput.addEventListener('input', handleProjectedBenefitEdit);
   resPolicyCashValueInput.addEventListener('input', handlePolicyCashValueEdit);
+  const resCoverageYearInput = document.getElementById('resCoverageYearInput');
+  resCoverageYearInput.addEventListener('focus', handleCoverageYearResultFocus);
+  resCoverageYearInput.addEventListener('blur', handleCoverageYearResultBlur);
+  resCoverageYearInput.addEventListener('change', handleCoverageYearResultChange);
+  const resCovBeforeInput = document.getElementById('resCovBeforeInput');
+  const resCovAfterInput = document.getElementById('resCovAfterInput');
+  [resCovBeforeInput, resCovAfterInput].forEach(input => {
+    input.addEventListener('focus', handleEditableMultiplierFocus);
+    input.addEventListener('blur', handleEditableMultiplierBlur);
+    input.addEventListener('input', handleCoverageMultiplierEdit);
+  });
   goToStep(state.currentStep || 1);
   fetchRate();
   try {
