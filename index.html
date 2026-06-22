@@ -237,6 +237,94 @@
     }
     .bond-info-row .label { color: var(--text-light); }
     .bond-info-row .value { font-weight: 600; }
+    .bond-info-row.editable {
+      align-items: center;
+      gap: 10px;
+    }
+    .bond-info-row.editable .value {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .slot-inline-group {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      width: 100%;
+      flex-wrap: wrap;
+    }
+    .slot-inline-input,
+    .slot-inline-select {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid #d6dee7;
+      border-radius: 8px;
+      background: white;
+      color: var(--text);
+      font: inherit;
+      font-weight: 600;
+      font-size: 0.82rem;
+      padding: 6px 10px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .slot-inline-input:focus,
+    .slot-inline-select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(26,58,92,0.08);
+    }
+    .slot-inline-input.text {
+      text-align: left;
+    }
+    .slot-inline-select {
+      appearance: none;
+      text-align: left;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237f8c8d' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+    }
+    .slot-inline-group .slot-inline-input,
+    .slot-inline-group .slot-inline-select {
+      flex: 1;
+    }
+    .slot-inline-input.sm,
+    .slot-inline-select.sm {
+      max-width: 110px;
+    }
+    .slot-inline-input.md,
+    .slot-inline-select.md {
+      max-width: 150px;
+    }
+    .slot-inline-input.lg {
+      max-width: 220px;
+    }
+    .slot-input-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      justify-content: flex-end;
+    }
+    .slot-input-unit {
+      color: var(--text-light);
+      font-size: 0.76rem;
+      white-space: nowrap;
+      font-weight: 500;
+    }
+    .slot-inline-note {
+      font-size: 0.75rem;
+      padding: 4px 0 0;
+      text-align: right;
+      color: var(--text-light);
+    }
+    .slot-inline-note.warn {
+      color: var(--danger);
+    }
 
     .add-bond-btn {
       width: 100%; padding: 14px; border: 2px dashed var(--border);
@@ -1988,6 +2076,56 @@ function escapeHtml(value) {
   }[char]));
 }
 
+function formatInlineNumberValue(value, decimals = null) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '';
+  return decimals == null ? String(numeric) : numeric.toFixed(decimals);
+}
+
+function renderInlineTextInput(value, onChange, sizeClass = 'lg') {
+  return `<input type="text" class="slot-inline-input text ${sizeClass}" value="${escapeHtml(value)}" onchange="${onChange}">`;
+}
+
+function renderInlineNumberInput(value, onChange, {
+  sizeClass = 'md',
+  step = '1',
+  min = null,
+  max = null,
+  unit = '',
+  decimals = null,
+  inputmode = 'decimal'
+} = {}) {
+  const minAttr = min == null ? '' : ` min="${min}"`;
+  const maxAttr = max == null ? '' : ` max="${max}"`;
+  const unitHtml = unit ? `<span class="slot-input-unit">${escapeHtml(unit)}</span>` : '';
+  return `
+    <span class="slot-input-wrap">
+      <input
+        type="number"
+        class="slot-inline-input ${sizeClass}"
+        value="${escapeHtml(formatInlineNumberValue(value, decimals))}"
+        step="${step}"
+        inputmode="${inputmode}"
+        ${minAttr}${maxAttr}
+        onchange="${onChange}"
+      >
+      ${unitHtml}
+    </span>
+  `;
+}
+
+function renderInlineSelect(value, onChange, options, sizeClass = 'md') {
+  return `
+    <select class="slot-inline-select ${sizeClass}" onchange="${onChange}">
+      ${options.map(option => `
+        <option value="${escapeHtml(option.value)}" ${String(option.value) === String(value) ? 'selected' : ''}>
+          ${escapeHtml(option.label)}
+        </option>
+      `).join('')}
+    </select>
+  `;
+}
+
 function parseEditableResultNumber(value) {
   const normalized = String(value ?? '').replace(/,/g, '').trim();
   if (!normalized) return null;
@@ -2123,17 +2261,14 @@ function computeCoverageComparison(projectedBenefitAmount, projectedBenefitCurre
     : state.premium;
   const projectedBenefitTwd = Number(projectedBenefitAmount || 0) * getCurrencyRate(projectedBenefitCurrency || (state.selectedProduct && state.selectedProduct.currency) || 'TWD');
   const covBefore = premiumTwd > 0 ? (projectedBenefitTwd / premiumTwd) : 0;
-
-  let ownCapital;
-  if (state.financingType === 'premium') {
-    ownCapital = state.selfFundAmount > 0
-      ? ((state.selectedProduct && state.selectedProduct.currency === 'USD') ? state.selfFundAmount * state.usdTwdRate : state.selfFundAmount)
-      : premiumTwd - state.financingAmount;
-    if (ownCapital <= 0) ownCapital = premiumTwd;
-  } else {
-    ownCapital = premiumTwd;
-  }
-  const covAfter = ownCapital > 0 ? (projectedBenefitTwd / ownCapital) : 0;
+  const coverageYear = Number(state.coverageYear) || 0;
+  const loanAmountTwd = Number(state.financingAmount) || 0;
+  const ownCapitalTwd = state.selectedProduct && state.selectedProduct.currency === 'USD'
+    ? (Number(state.selfFundAmount) || 0) * (Number(state.usdTwdRate) || 0)
+    : (Number(state.selfFundAmount) || 0);
+  const annualLoanRate = 0.0238;
+  const netBenefitAfterFinancing = projectedBenefitTwd - (coverageYear * loanAmountTwd * annualLoanRate) - loanAmountTwd;
+  const covAfter = ownCapitalTwd > 0 ? (netBenefitAfterFinancing / ownCapitalTwd) : 0;
 
   return { covBefore, covAfter };
 }
@@ -3575,11 +3710,11 @@ function recalcFinancing(source = '') {
   document.getElementById('dispReferenceCashValue').textContent = projectedReferenceCashValue
     ? `${fmt(Math.round(projectedReferenceCashValue.amount))} ${projectedReferenceCashValue.currency}`
     : '-';
-  if (state.bonds.length > 0) {
-    state.bonds = state.bonds.map(calculateBondAmounts);
-    renderBondSlots();
-    updateBondSummary();
-  }
+  if (state.bonds.length > 0) recalcPledgedChain();
+  if (state.funds.length > 0) recalcPledgedFundChain();
+  if (state.bonds.length > 0) renderBondSlots();
+  if (state.funds.length > 0) renderFundSlots();
+  if (state.bonds.length > 0 || state.funds.length > 0 || state.structuredProducts.length > 0) updateBondSummary();
   updateStepAvailability();
   if ((state.currentStep || 1) === 4) {
     renderResults();
@@ -3658,13 +3793,15 @@ function calculateFundAmounts(rawFund) {
   const loanAmountTwd = Math.round(investmentAmountTwd * loanRatio);
   const pledgeRate = rawFund.pledgeRate != null ? parseFloat(rawFund.pledgeRate) : 2.38;
   const pledgeCostTwd = Math.round(loanAmountTwd * (pledgeRate / 100));
+  const parsedDividendFrequency = parseInt(rawFund.dividendFrequency, 10);
+  const dividendFrequency = Number.isFinite(parsedDividendFrequency) ? parsedDividendFrequency : 12;
 
   return {
     ...rawFund,
     currency: rawFund.currency || inferFundCurrency(rawFund.name),
     investmentAmountTwd,
     dividendRate,
-    dividendFrequency: parseInt(rawFund.dividendFrequency, 10) || 12,
+    dividendFrequency,
     annualDividendTwd,
     loanRatio,
     loanAmountTwd,
@@ -3788,29 +3925,168 @@ function openAddStructuredModal() {
 function closeStructuredModal() { document.getElementById('structuredModal').classList.remove('show'); }
 
 function recalcPledgedFundChain() {
-  if (state.investmentModes?.fund !== 'pledged' || state.funds.length < 2) return;
-  for (let i = 1; i < state.funds.length; i++) {
-    const prev = state.funds[i - 1];
-    const cur = state.funds[i];
-    if (!prev.loanAmountTwd) continue;
-    state.funds[i] = calculateFundAmounts({ ...cur, investmentAmountTwd: prev.loanAmountTwd });
-    state.funds[i]._autoCalc = true;
+  if (!Array.isArray(state.funds) || state.funds.length === 0) return;
+  const isPledged = state.investmentModes?.fund === 'pledged';
+  const nextFunds = [];
+
+  for (let i = 0; i < state.funds.length; i++) {
+    const prev = nextFunds[i - 1];
+    const cur = { ...state.funds[i] };
+
+    if (isPledged && i > 0 && !cur._manualInvestmentAmount && prev?.loanAmountTwd) {
+      cur.investmentAmountTwd = prev.loanAmountTwd;
+      cur._autoCalc = true;
+    } else {
+      cur._autoCalc = false;
+    }
+
+    nextFunds.push(calculateFundAmounts(cur));
   }
+
+  state.funds = nextFunds;
 }
 
 function recalcPledgedChain() {
-  if (state.investmentModes?.bond !== 'pledged' || state.bonds.length < 2) return;
-  for (let i = 1; i < state.bonds.length; i++) {
-    const prev = state.bonds[i - 1];
-    const cur = state.bonds[i];
-    if (!prev.loanAmount || !cur.buyPrice) continue;
-    const rawFaceValue = prev.loanAmount / (cur.buyPrice / 100);
-    const floored = Math.floor(rawFaceValue / 10000) * 10000;
-    const newFaceValue = floored < 200000 ? 200000 : floored;
-    state.bonds[i] = calculateBondAmounts({ ...cur, faceValue: newFaceValue });
-    state.bonds[i]._autoCalc = true;
-    state.bonds[i]._underMin = floored < 200000;
+  if (!Array.isArray(state.bonds) || state.bonds.length === 0) return;
+  const isPledged = state.investmentModes?.bond === 'pledged';
+  const nextBonds = [];
+
+  for (let i = 0; i < state.bonds.length; i++) {
+    const prev = nextBonds[i - 1];
+    const cur = { ...state.bonds[i] };
+
+    if (isPledged && i > 0 && !cur._manualFaceValue && prev?.loanAmount && cur.buyPrice) {
+      const rawFaceValue = prev.loanAmount / (cur.buyPrice / 100);
+      const floored = Math.floor(rawFaceValue / 10000) * 10000;
+      cur.faceValue = floored < 200000 ? 200000 : floored;
+      cur._autoCalc = true;
+      cur._underMin = floored < 200000;
+    } else {
+      cur._autoCalc = false;
+      cur._underMin = false;
+    }
+
+    nextBonds.push(calculateBondAmounts(cur));
   }
+
+  state.bonds = nextBonds;
+}
+
+function updateBondInlineField(index, field, value) {
+  const current = state.bonds[index];
+  if (!current) return;
+
+  const next = { ...current };
+  switch (field) {
+    case 'code':
+      next.code = String(value || '').trim();
+      break;
+    case 'name':
+      next.name = String(value || '').trim();
+      break;
+    case 'currency':
+      next.currency = String(value || 'USD').toUpperCase();
+      break;
+    case 'rating':
+      next.rating = String(value || '').trim();
+      break;
+    case 'faceValue':
+      next.faceValue = Math.max(0, parseFloat(value) || 0);
+      next._manualFaceValue = true;
+      break;
+    case 'investmentAmount': {
+      const investmentAmount = Math.max(0, parseFloat(value) || 0);
+      const buyPrice = parseFloat(next.buyPrice) || 100;
+      if (buyPrice > 0) {
+        next.faceValue = Math.max(0, Math.round((investmentAmount * 100) / buyPrice));
+        next._manualFaceValue = true;
+      }
+      break;
+    }
+    case 'buyPrice':
+      next.buyPrice = Math.max(0, parseFloat(value) || 0);
+      break;
+    case 'couponRate':
+      next.couponRate = Math.max(0, parseFloat(value) || 0);
+      break;
+    case 'maturityYears':
+      next.maturityYears = Math.max(0, parseFloat(value) || 0);
+      break;
+    case 'divFreq':
+      next.divFreq = parseInt(value, 10) || 2;
+      break;
+    case 'loanRatioPct':
+      next.loanRatio = Math.max(0, parseFloat(value) || 0) / 100;
+      break;
+    case 'loanAmount': {
+      const calculated = calculateBondAmounts(next);
+      const targetLoanAmount = Math.max(0, parseFloat(value) || 0);
+      next.loanRatio = calculated.investmentAmount > 0 ? targetLoanAmount / calculated.investmentAmount : 0;
+      break;
+    }
+    case 'pledgeRate':
+      next.pledgeRate = Math.max(0, parseFloat(value) || 0);
+      break;
+    default:
+      return;
+  }
+
+  state.bonds[index] = calculateBondAmounts(next);
+  recalcPledgedChain();
+  renderBondSlots();
+  updateBondSummary();
+  saveState();
+}
+
+function updateFundInlineField(index, field, value) {
+  const current = state.funds[index];
+  if (!current) return;
+
+  const next = { ...current };
+  switch (field) {
+    case 'code':
+      next.code = String(value || '').trim();
+      break;
+    case 'name':
+      next.name = String(value || '').trim();
+      if (!next.currency) next.currency = inferFundCurrency(next.name);
+      break;
+    case 'currency':
+      next.currency = String(value || 'TWD').toUpperCase();
+      break;
+    case 'investmentAmountTwd':
+      next.investmentAmountTwd = Math.max(0, parseFloat(value) || 0);
+      next._manualInvestmentAmount = true;
+      break;
+    case 'dividendRate':
+      next.dividendRate = Math.max(0, parseFloat(value) || 0);
+      break;
+    case 'dividendFrequency': {
+      const parsedFrequency = parseInt(value, 10);
+      next.dividendFrequency = Number.isFinite(parsedFrequency) ? parsedFrequency : 12;
+      break;
+    }
+    case 'loanRatioPct':
+      next.loanRatio = Math.max(0, parseFloat(value) || 0) / 100;
+      break;
+    case 'loanAmountTwd': {
+      const calculated = calculateFundAmounts(next);
+      const targetLoanAmount = Math.max(0, parseFloat(value) || 0);
+      next.loanRatio = calculated.investmentAmountTwd > 0 ? targetLoanAmount / calculated.investmentAmountTwd : 0;
+      break;
+    }
+    case 'pledgeRate':
+      next.pledgeRate = Math.max(0, parseFloat(value) || 0);
+      break;
+    default:
+      return;
+  }
+
+  state.funds[index] = calculateFundAmounts(next);
+  recalcPledgedFundChain();
+  renderFundSlots();
+  updateBondSummary();
+  saveState();
 }
 
 function saveBond() {
@@ -3852,7 +4128,8 @@ function saveFund() {
   const name = document.getElementById('fundName').value.trim();
   const investmentAmountTwd = parseFloat(document.getElementById('fundInvestmentAmount').value) || 0;
   const dividendRate = parseFloat(document.getElementById('fundDividendRate').value) || 0;
-  const dividendFrequency = parseInt(document.getElementById('fundDividendFrequency').value, 10) || 12;
+  const parsedDividendFrequency = parseInt(document.getElementById('fundDividendFrequency').value, 10);
+  const dividendFrequency = Number.isFinite(parsedDividendFrequency) ? parsedDividendFrequency : 12;
 
   if (!code || !name || investmentAmountTwd <= 0) {
     alert('請填寫基金代碼、名稱與投資金額');
@@ -4020,6 +4297,19 @@ function renderBondSlots() {
   }
 
   const isPledgedBond = state.investmentModes?.bond === 'pledged';
+  const currencyOptions = [
+    { value: 'USD', label: 'USD' },
+    { value: 'TWD', label: 'TWD' },
+    { value: 'AUD', label: 'AUD' },
+    { value: 'EUR', label: 'EUR' },
+    { value: 'GBP', label: 'GBP' }
+  ];
+  const divFreqOptions = [
+    { value: '2', label: '半年配' },
+    { value: '4', label: '季配' },
+    { value: '12', label: '月配' },
+    { value: '1', label: '年配' }
+  ];
   container.innerHTML = state.bonds.map((b, i) => `
     <div class="bond-slot">
       <div class="bond-slot-header">
@@ -4032,33 +4322,42 @@ function renderBondSlots() {
         </span>
       </div>
       <div class="bond-slot-body">
-        <div class="bond-info-row"><span class="label">代碼</span><span class="value">${b.code}</span></div>
+        <div class="bond-info-row ${isPledgedBond ? 'editable' : ''}"><span class="label">代碼</span><span class="value">${isPledgedBond ? renderInlineTextInput(b.code, `updateBondInlineField(${i}, 'code', this.value)`, 'md') : b.code}</span></div>
         <div class="bond-info-row"><span class="label">投資方式</span><span class="value">${bondModeLabel}</span></div>
-        <div class="bond-info-row"><span class="label">名稱</span><span class="value">${b.name}</span></div>
-        <div class="bond-info-row"><span class="label">幣別 / 評等</span><span class="value">${b.currency} / ${b.rating || '-'}</span></div>
-        <div class="bond-info-row"><span class="label">面額</span><span class="value">${fmt(b.faceValue)} ${b.currency}</span></div>
-        <div class="bond-info-row"><span class="label">買入價 / 投資額</span><span class="value">${fmtDec(b.buyPrice)} / ${fmt(b.investmentAmount)} ${b.currency}</span></div>
-        <div class="bond-info-row"><span class="label">票息率</span><span class="value">${fmtDec(b.couponRate, 3)}%</span></div>
-        <div class="bond-info-row"><span class="label">剩餘到期年</span><span class="value">${fmtDec(b.maturityYears)} 年</span></div>
+        <div class="bond-info-row ${isPledgedBond ? 'editable' : ''}"><span class="label">名稱</span><span class="value">${isPledgedBond ? renderInlineTextInput(b.name, `updateBondInlineField(${i}, 'name', this.value)`) : b.name}</span></div>
+        <div class="bond-info-row ${isPledgedBond ? 'editable' : ''}"><span class="label">幣別 / 評等</span><span class="value">${isPledgedBond
+          ? `<span class="slot-inline-group">
+              ${renderInlineSelect(b.currency, `updateBondInlineField(${i}, 'currency', this.value)`, currencyOptions, 'sm')}
+              ${renderInlineTextInput(b.rating || '', `updateBondInlineField(${i}, 'rating', this.value)`, 'sm')}
+            </span>`
+          : `${b.currency} / ${b.rating || '-'}`}</span></div>
+        <div class="bond-info-row ${isPledgedBond ? 'editable' : ''}"><span class="label">面額</span><span class="value">${isPledgedBond ? renderInlineNumberInput(b.faceValue, `updateBondInlineField(${i}, 'faceValue', this.value)`, { step: '10000', min: 0, unit: b.currency, inputmode: 'numeric' }) : `${fmt(b.faceValue)} ${b.currency}`}</span></div>
+        <div class="bond-info-row ${isPledgedBond ? 'editable' : ''}"><span class="label">買入價</span><span class="value">${isPledgedBond ? renderInlineNumberInput(b.buyPrice, `updateBondInlineField(${i}, 'buyPrice', this.value)`, { step: '0.01', min: 0, decimals: 2 }) : fmtDec(b.buyPrice)}</span></div>
+        <div class="bond-info-row ${isPledgedBond ? 'editable' : ''}"><span class="label">投資額</span><span class="value">${isPledgedBond ? renderInlineNumberInput(b.investmentAmount, `updateBondInlineField(${i}, 'investmentAmount', this.value)`, { step: '1000', min: 0, unit: b.currency, inputmode: 'numeric' }) : `${fmt(b.investmentAmount)} ${b.currency}`}</span></div>
+        <div class="bond-info-row ${isPledgedBond ? 'editable' : ''}"><span class="label">票息率</span><span class="value">${isPledgedBond ? renderInlineNumberInput(b.couponRate, `updateBondInlineField(${i}, 'couponRate', this.value)`, { step: '0.001', min: 0, unit: '%', decimals: 3 }) : `${fmtDec(b.couponRate, 3)}%`}</span></div>
+        <div class="bond-info-row ${isPledgedBond ? 'editable' : ''}"><span class="label">剩餘到期年</span><span class="value">${isPledgedBond ? renderInlineNumberInput(b.maturityYears, `updateBondInlineField(${i}, 'maturityYears', this.value)`, { step: '0.01', min: 0, unit: '年', decimals: 2 }) : `${fmtDec(b.maturityYears)} 年`}</span></div>
+        ${isPledgedBond ? `<div class="bond-info-row editable"><span class="label">配息頻率</span><span class="value">${renderInlineSelect(String(b.divFreq || 2), `updateBondInlineField(${i}, 'divFreq', this.value)`, divFreqOptions)}</span></div>` : ''}
         ${isPledgedBond ? `
-        <div class="bond-info-row" style="background:#fff8e6; padding:6px 16px; margin:4px -16px 0;">
+        <div class="bond-info-row editable" style="background:#fff8e6; padding:6px 16px; margin:4px -16px 0;">
           <span class="label">質借成數</span>
-          <span class="value">${Math.round((b.loanRatio ?? 0.72) * 100)}%</span>
+          <span class="value">${renderInlineNumberInput(Math.round((b.loanRatio ?? 0.72) * 10000) / 100, `updateBondInlineField(${i}, 'loanRatioPct', this.value)`, { step: '0.01', min: 0, max: 100, unit: '%', decimals: 2 })}</span>
         </div>
-        <div class="bond-info-row" style="background:#fff8e6; padding:6px 16px; margin:0 -16px 0;">
+        <div class="bond-info-row editable" style="background:#fff8e6; padding:6px 16px; margin:0 -16px 0;">
           <span class="label"><strong>質借金額</strong></span>
-          <span class="value" style="color:var(--warning); font-weight:600;">${fmt(b.loanAmount)} ${b.currency}</span>
+          <span class="value" style="color:var(--warning); font-weight:600;">${renderInlineNumberInput(b.loanAmount, `updateBondInlineField(${i}, 'loanAmount', this.value)`, { step: '1000', min: 0, unit: b.currency, inputmode: 'numeric' })}</span>
         </div>
-        <div class="bond-info-row" style="background:#fff8e6; padding:6px 16px; margin:0 -16px 0;">
+        <div class="bond-info-row editable" style="background:#fff8e6; padding:6px 16px; margin:0 -16px 0;">
           <span class="label">質押利率</span>
-          <span class="value">${fmtDec(b.pledgeRate ?? 2.38, 2)}%</span>
+          <span class="value">${renderInlineNumberInput(b.pledgeRate ?? 2.38, `updateBondInlineField(${i}, 'pledgeRate', this.value)`, { step: '0.01', min: 0, unit: '%', decimals: 2 })}</span>
         </div>
         <div class="bond-info-row" style="background:#fff0f0; padding:6px 16px; margin:0 -16px 0;">
           <span class="label"><strong>年質借成本 (TWD)</strong></span>
           <span class="value" style="color:var(--danger); font-weight:600;">-${fmt(b.pledgeCostTwd)}</span>
         </div>
-        ${i > 0 && b._autoCalc ? `<div style="font-size:0.75rem; color:${b._underMin ? 'var(--danger)' : 'var(--text-light)'}; padding:4px 0 0; text-align:right;">
-          ${b._underMin ? '⚠️ 面額不足 200,000，已設為最低限額' : '✦ 面額依前檔質借金額自動計算'}
+        ${i > 0 ? `<div class="slot-inline-note ${b._underMin ? 'warn' : ''}">
+          ${b._autoCalc
+            ? (b._underMin ? '面額試算不足 200,000，已套用最低面額 200,000。' : '本檔面額會依前一檔質借金額自動續算。')
+            : '此檔已改為手動輸入，後續檔次會依本檔質借金額續算。'}
         </div>` : ''}` : ''}
         <div class="bond-info-row" style="background:#f0f8ff; margin:4px -16px -14px; padding:8px 16px; border-radius:0 0 12px 12px;">
           <span class="label"><strong>年配息 (TWD)</strong></span>
@@ -4082,6 +4381,17 @@ function renderFundSlots() {
   }
 
   const isPledgedFund = state.investmentModes?.fund === 'pledged';
+  const currencyOptions = [
+    { value: 'TWD', label: 'TWD' },
+    { value: 'USD', label: 'USD' }
+  ];
+  const dividendFrequencyOptions = [
+    { value: '12', label: '月配' },
+    { value: '4', label: '季配' },
+    { value: '2', label: '半年配' },
+    { value: '1', label: '年配' },
+    { value: '0', label: '不配息' }
+  ];
   container.innerHTML = state.funds.map((f, i) => `
     <div class="bond-slot">
       <div class="bond-slot-header">
@@ -4094,31 +4404,33 @@ function renderFundSlots() {
         </span>
       </div>
       <div class="bond-slot-body">
-        <div class="bond-info-row"><span class="label">代碼</span><span class="value">${f.code}</span></div>
+        <div class="bond-info-row ${isPledgedFund ? 'editable' : ''}"><span class="label">代碼</span><span class="value">${isPledgedFund ? renderInlineTextInput(f.code, `updateFundInlineField(${i}, 'code', this.value)`, 'md') : f.code}</span></div>
         <div class="bond-info-row"><span class="label">投資方式</span><span class="value">${fundModeLabel}</span></div>
-        <div class="bond-info-row"><span class="label">名稱</span><span class="value">${f.name}</span></div>
-        <div class="bond-info-row"><span class="label">幣別</span><span class="value">${f.currency}</span></div>
-        <div class="bond-info-row"><span class="label">投資金額</span><span class="value">${fmt(f.investmentAmountTwd)} TWD</span></div>
-        <div class="bond-info-row"><span class="label">年化配息率</span><span class="value">${fmtDec(f.dividendRate, 2)}%</span></div>
-        <div class="bond-info-row"><span class="label">配息頻率</span><span class="value">${formatDividendFrequency(f.dividendFrequency)}</span></div>
+        <div class="bond-info-row ${isPledgedFund ? 'editable' : ''}"><span class="label">名稱</span><span class="value">${isPledgedFund ? renderInlineTextInput(f.name, `updateFundInlineField(${i}, 'name', this.value)`) : f.name}</span></div>
+        <div class="bond-info-row ${isPledgedFund ? 'editable' : ''}"><span class="label">幣別</span><span class="value">${isPledgedFund ? renderInlineSelect(f.currency || 'TWD', `updateFundInlineField(${i}, 'currency', this.value)`, currencyOptions, 'sm') : f.currency}</span></div>
+        <div class="bond-info-row ${isPledgedFund ? 'editable' : ''}"><span class="label">投資金額</span><span class="value">${isPledgedFund ? renderInlineNumberInput(f.investmentAmountTwd, `updateFundInlineField(${i}, 'investmentAmountTwd', this.value)`, { step: '1000', min: 0, unit: 'TWD', inputmode: 'numeric' }) : `${fmt(f.investmentAmountTwd)} TWD`}</span></div>
+        <div class="bond-info-row ${isPledgedFund ? 'editable' : ''}"><span class="label">年化配息率</span><span class="value">${isPledgedFund ? renderInlineNumberInput(f.dividendRate, `updateFundInlineField(${i}, 'dividendRate', this.value)`, { step: '0.01', min: 0, unit: '%', decimals: 2 }) : `${fmtDec(f.dividendRate, 2)}%`}</span></div>
+        <div class="bond-info-row ${isPledgedFund ? 'editable' : ''}"><span class="label">配息頻率</span><span class="value">${isPledgedFund ? renderInlineSelect(f.dividendFrequency === 0 ? '0' : String(f.dividendFrequency || 12), `updateFundInlineField(${i}, 'dividendFrequency', this.value)`, dividendFrequencyOptions) : formatDividendFrequency(f.dividendFrequency)}</span></div>
         ${isPledgedFund ? `
-        <div class="bond-info-row" style="background:#fff8e6; padding:6px 16px; margin:4px -16px 0;">
+        <div class="bond-info-row editable" style="background:#fff8e6; padding:6px 16px; margin:4px -16px 0;">
           <span class="label">質借成數</span>
-          <span class="value">${Math.round((f.loanRatio ?? 0.72) * 100)}%</span>
+          <span class="value">${renderInlineNumberInput(Math.round((f.loanRatio ?? 0.72) * 10000) / 100, `updateFundInlineField(${i}, 'loanRatioPct', this.value)`, { step: '0.01', min: 0, max: 100, unit: '%', decimals: 2 })}</span>
         </div>
-        <div class="bond-info-row" style="background:#fff8e6; padding:6px 16px; margin:0 -16px 0;">
+        <div class="bond-info-row editable" style="background:#fff8e6; padding:6px 16px; margin:0 -16px 0;">
           <span class="label"><strong>質借金額</strong></span>
-          <span class="value" style="color:var(--warning); font-weight:600;">${fmt(f.loanAmountTwd)} TWD</span>
+          <span class="value" style="color:var(--warning); font-weight:600;">${renderInlineNumberInput(f.loanAmountTwd, `updateFundInlineField(${i}, 'loanAmountTwd', this.value)`, { step: '1000', min: 0, unit: 'TWD', inputmode: 'numeric' })}</span>
         </div>
-        <div class="bond-info-row" style="background:#fff8e6; padding:6px 16px; margin:0 -16px 0;">
+        <div class="bond-info-row editable" style="background:#fff8e6; padding:6px 16px; margin:0 -16px 0;">
           <span class="label">質押利率</span>
-          <span class="value">${fmtDec(f.pledgeRate ?? 2.38, 2)}%</span>
+          <span class="value">${renderInlineNumberInput(f.pledgeRate ?? 2.38, `updateFundInlineField(${i}, 'pledgeRate', this.value)`, { step: '0.01', min: 0, unit: '%', decimals: 2 })}</span>
         </div>
         <div class="bond-info-row" style="background:#fff0f0; padding:6px 16px; margin:0 -16px 0;">
           <span class="label"><strong>年質借成本 (TWD)</strong></span>
           <span class="value" style="color:var(--danger); font-weight:600;">-${fmt(f.pledgeCostTwd)}</span>
         </div>
-        ${i > 0 && f._autoCalc ? `<div style="font-size:0.75rem; color:var(--text-light); padding:4px 0 0; text-align:right;">✦ 投資金額依前檔質借金額自動計算</div>` : ''}` : ''}
+        ${i > 0 ? `<div class="slot-inline-note">
+          ${f._autoCalc ? '本檔投資金額會依前一檔質借金額自動續算。' : '此檔已改為手動輸入，後續檔次會依本檔質借金額續算。'}
+        </div>` : ''}` : ''}
         <div class="bond-info-row" style="background:#f0f8ff; margin:4px -16px -14px; padding:8px 16px; border-radius:0 0 12px 12px;">
           <span class="label"><strong>年配息 (TWD)</strong></span>
           <span class="value" style="color:var(--accent);">${fmt(f.annualDividendTwd)}</span>
@@ -4217,7 +4529,7 @@ function updateBondSummary() {
   document.getElementById('totalFinCost').textContent = fmt(finCost) + ' TWD';
   document.getElementById('totalPolicyLoanCost').textContent = fmt(mainFinCost) + ' TWD';
   document.getElementById('totalPledgeLoanCost').textContent = fmt(totalPledgeCost) + ' TWD';
-  document.getElementById('subRowPledgeLoan').style.display = (isPledgedBond && totalPledgeCost > 0) ? '' : 'none';
+  document.getElementById('subRowPledgeLoan').style.display = ((isPledgedBond || isPledgedFund) && totalPledgeCost > 0) ? '' : 'none';
   document.getElementById('netIncome').textContent = fmt(net) + ' TWD';
 
   document.getElementById('allocationWarning').classList.toggle('hidden', totalInvTwd <= state.financingAmount * 1.01);
@@ -4511,6 +4823,8 @@ document.addEventListener('DOMContentLoaded', function() {
   loadState();
   applyStateToForm();
   updateInvestmentModeUI();
+  recalcPledgedChain();
+  recalcPledgedFundChain();
   renderBondSlots();
   renderFundSlots();
   renderStructuredSlots();
