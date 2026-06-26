@@ -425,6 +425,13 @@
     .stat-card.positive .stat-value { color: var(--success); }
     .stat-card.negative .stat-value { color: var(--danger); }
     .stat-card.accent .stat-value { color: var(--accent); }
+    .stat-card .stat-subvalue {
+      margin-top: 6px;
+      font-size: 0.76rem;
+      color: var(--text-light);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.4;
+    }
     .stat-card.full { grid-column: 1 / -1; }
     .editable-stat-value {
       display: flex;
@@ -1175,8 +1182,14 @@
         <div class="stat-card"><div class="stat-label">保險商品</div><div class="stat-value text-sm" id="resProduct">-</div></div>
         <div class="stat-card result-premium-only"><div class="stat-label">保額</div><div class="stat-value" id="resSumInsured">-</div></div>
         <div class="stat-card result-premium-only"><div class="stat-label">保費</div><div class="stat-value" id="resPremium">-</div></div>
+        <div class="stat-card result-premium-only"><div class="stat-label">自備款</div><div class="stat-value" id="resSelfFund">-</div></div>
+        <div class="stat-card result-premium-only"><div class="stat-label">貸款金額</div><div class="stat-value" id="resLoanOriginal">-</div></div>
         <div class="stat-card result-policy-only hidden"><div class="stat-label">保單價值</div><div class="stat-value" id="resPolicyValue">-</div></div>
-        <div class="stat-card accent"><div class="stat-label">融資金額 (TWD)</div><div class="stat-value" id="resFinancing">-</div></div>
+        <div class="stat-card accent">
+          <div class="stat-label">融資金額 (TWD)</div>
+          <div class="stat-value" id="resFinancing">-</div>
+          <div class="stat-subvalue" id="resFinancingFx">參考匯率：-</div>
+        </div>
         <div class="stat-card"><div class="stat-label">融資利率</div><div class="stat-value" id="resRate">-</div></div>
         <div class="stat-card result-premium-only">
           <div class="stat-label">保障倍數年度</div>
@@ -5529,8 +5542,9 @@ function resetScenario() {
 // === Step 4: Results ===
 function renderResults() {
   const p = state.selectedProduct;
-  const isUsd = p && p.currency === 'USD';
-  const currSuffix = isUsd ? ' USD' : ' TWD';
+  const productCurrency = p && p.currency ? p.currency : 'TWD';
+  const isUsd = productCurrency === 'USD';
+  const currSuffix = ` ${productCurrency}`;
   const isPremiumResult = state.financingType === 'premium';
 
   document.querySelectorAll('.result-premium-only').forEach(el => {
@@ -5547,8 +5561,11 @@ function renderResults() {
   document.getElementById('resProduct').textContent = p ? p.shortName : '-';
   document.getElementById('resSumInsured').textContent = fmt(state.sumInsured) + currSuffix;
   document.getElementById('resPremium').textContent = fmt(state.premium) + currSuffix;
+  document.getElementById('resSelfFund').textContent = fmt(state.selfFundAmount) + currSuffix;
+  document.getElementById('resLoanOriginal').textContent = fmt(state.financingOriginalAmount) + currSuffix;
   document.getElementById('resPolicyValue').textContent = fmt(state.policyValue) + currSuffix;
   document.getElementById('resFinancing').textContent = fmt(state.financingAmount);
+  document.getElementById('resFinancingFx').textContent = `參考匯率：USD/TWD ${fmtDec(state.usdTwdRate, 2)}`;
   document.getElementById('resRate').textContent = fmtDec(state.financingRate) + '%';
   setEditableCoverageYearField(state.coverageYear || 20, !isPremiumResult);
 
